@@ -1,0 +1,44 @@
+version: "3.9"
+
+networks:
+  food-network:
+    driver: bridge
+
+services:
+
+  food-mysql:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+    ports:
+      - "13306:3306"
+    networks:
+      - food-network
+
+  food-redis:
+    image: redis:6.2.1-alpine
+    networks:
+      - food-network
+
+  food-api:
+    image: food-api
+    command: ["/wait-for-it.sh", "food-mysql:3306", "-t", "30", "--", "java", "-jar", "api.jar"]
+    environment:
+      DB_HOST: food-mysql
+      SPRING_SESSION_STORE_TYPE: redis
+      SPRING_REDIS_HOST: food-redis
+      SPRING_PROFILES_ACTIVE: development
+    networks:
+      - food-network
+    depends_on:
+      - food-mysql
+
+  food-proxy:
+    build: ./nginx
+    image: food-proxy
+    ports:
+      - "80:80"
+    networks:
+      - food-network
+    depends_on:
+      - food-api
